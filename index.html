@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Energia PRO+ | Analisi & Backup</title>
+    <style>
+        :root { --primary: #1e88e5; --bg: #f4f7f9; --text: #2c3e50; --accent: #00bcd4; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); padding: 20px; line-height: 1.5; }
+        .container { max-width: 1100px; margin: auto; }
+        .card { background: white; padding: 25px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); margin-bottom: 25px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px; }
+        h1, h2 { color: var(--primary); margin-top: 0; border-bottom: 2px solid #f0f0f0; padding-bottom: 10px; }
+        input, select { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #dfe6e9; border-radius: 8px; font-size: 14px; }
+        
+        .filter-bar { background: #e3f2fd; padding: 15px; border-radius: 12px; display: flex; gap: 15px; margin-bottom: 20px; align-items: center; border: 1px solid #bbdefb; }
+        .filter-bar label { font-weight: bold; font-size: 0.9em; color: #1565c0; }
+        .filter-bar select { margin: 0; background: white; }
+
+        button { padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.3s; }
+        .btn-add { background: var(--primary); color: white; width: 100%; margin-bottom: 10px; }
+        .btn-backup { background: #607d8b; color: white; width: 48%; font-size: 12px; }
+        .btn-import { background: #9c27b0; color: white; width: 48%; font-size: 12px; }
+        .btn-del { background: #ff7675; color: white; padding: 5px 10px; font-size: 12px; border-radius: 4px; }
+        
+        .flex-buttons { display: flex; justify-content: space-between; gap: 4%; margin-top: 10px; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 0.85em; }
+        th, td { text-align: left; padding: 12px; border-bottom: 1px solid #f1f2f6; }
+        th { background: #f8f9fa; color: #636e72; text-transform: uppercase; font-size: 11px; }
+        .daily-stat { color: var(--accent); font-weight: 600; }
+        .total-stat { color: var(--primary); font-weight: bold; font-size: 1.1em; }
+        .annual-box { background: #fdfdfd; border: 1px solid #edf2f7; padding: 15px; border-radius: 10px; margin-bottom: 15px; border-left: 5px solid var(--primary); }
+        .divider { height: 1px; background: #eee; margin: 8px 0; }
+        .recovery-alert { background: #fff3cd; color: #856404; padding: 10px; border-radius: 8px; margin-bottom: 15px; font-size: 0.9em; display: none; border: 1px solid #ffeeba; transition: opacity 0.5s ease; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div id="recoveryAlert" class="recovery-alert">Dati caricati correttamente!</div>
+    
+    <header style="margin-bottom: 30px; text-align: center;">
+        <h1>⚡ Energia PRO+ <small style="font-size: 0.4em; opacity: 0.6;">v4.2 (Update)</small></h1>
+    </header>
+
+    <div class="card">
+        <h2>🔍 Filtra Visualizzazione</h2>
+        <div class="filter-bar">
+            <div style="flex:1">
+                <label>Anno</label>
+                <select id="filterYear" onchange="renderAll()">
+                    <option value="ALL">Tutti gli anni</option>
+                </select>
+            </div>
+            <div style="flex:1">
+                <label>Fornitura</label>
+                <select id="filterType" onchange="renderAll()">
+                    <option value="ALL">Tutte le utenze</option>
+                    <option value="ELETTRICITA">Solo Elettricità</option>
+                    <option value="GAS">Solo Gas</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid">
+        <div class="card">
+            <h2>✍️ Nuova Bolletta</h2>
+            <label>Tipo Utenza</label>
+            <select id="type">
+                <option value="ELETTRICITA">Elettricità (kWh)</option>
+                <option value="GAS">Gas (Smc)</option>
+            </select>
+            <div style="display: flex; gap: 10px;">
+                <div style="flex:1"><label>Dal</label><input type="date" id="startDate" title="Inizio"></div>
+                <div style="flex:1"><label>Al</label><input type="date" id="endDate" title="Fine"></div>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <div style="flex:1"><label>Consumo</label><input type="number" id="consumption" step="0.01"></div>
+                <div style="flex:1"><label>Importo €</label><input type="number" id="amount" step="0.01"></div>
+            </div>
+            <div style="margin-bottom: 10px;">
+                <label>Note</label>
+                <input type="text" id="notes" placeholder="Es. Conguaglio, bolletta stimata...">
+            </div>
+            <button class="btn-add" onclick="addBill()">REGISTRA E SALVA</button>
+            
+            <div class="flex-buttons">
+                <button class="btn-backup" onclick="exportBackup()">ESPORTA BACKUP</button>
+                <button class="btn-import" onclick="document.getElementById('importFile').click()">IMPORTA BACKUP</button>
+            </div>
+            <input type="file" id="importFile" style="display:none" accept=".json" onchange="importBackup(event)">
+        </div>
+
+        <div class="card">
+            <h2>📊 Analisi Selezionata</h2>
+            <div id="annualSummary">Inserisci dati per vedere i totali...</div>
+        </div>
+    </div>
+
+    <div class="card" style="overflow-x: auto;">
+        <h2>📜 Storico Bollette</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Utenza</th>
+                    <th>Periodo (Dal - Al)</th>
+                    <th>Consumo</th>
+                    <th>Importo (€)</th>
+                    <th>Media/GG</th>
+                    <th>Costo Unità</th>
+                    <th>Note</th>
+                    <th>Azione</th>
+                </tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+let bills = [];
+
+function loadData() {
+    const keys = ["energy_data_2026", "energy_data", "bills"];
+    let foundData = [];
+
+    keys.forEach(key => {
+        const item = localStorage.getItem(key);
+        if (item) {
+            try {
+                const parsed = JSON.parse(item);
+                if (Array.isArray(parsed)) foundData = [...foundData, ...parsed];
+            } catch (e) { console.error("Errore parse", e); }
+        }
+    });
+
+    const unique = [];
+    const map = new Map();
+    for (const item of foundData) {
+        const fingerprint = `${item.type}-${item.end}-${item.consumption}-${item.amount}`;
+        if (!map.has(fingerprint)) {
+            map.set(fingerprint, true);
+            unique.push(item);
+        }
+    }
+    
+    bills = unique;
+    if (bills.length > 0) {
+        const alertBox = document.getElementById('recoveryAlert');
+        alertBox.style.display = 'block';
+        // Nasconde l'alert dopo 3,5 secondi in modo fluido
+        setTimeout(() => {
+            alertBox.style.opacity = '0';
+            setTimeout(() => { alertBox.style.display = 'none'; alertBox.style.opacity = '1'; }, 500);
+        }, 3500);
+    }
+    updateYearFilter();
+    renderAll();
+}
+
+function updateYearFilter() {
+    const yearSelect = document.getElementById("filterYear");
+    const currentVal = yearSelect.value;
+    const years = [...new Set(bills.map(b => new Date(b.end).getFullYear()))].sort().reverse();
+    
+    yearSelect.innerHTML = '<option value="ALL">Tutti gli anni</option>';
+    years.forEach(y => {
+        yearSelect.innerHTML += `<option value="${y}">${y}</option>`;
+    });
+    
+    if (currentVal !== "ALL" && !years.includes(parseInt(currentVal))) {
+        yearSelect.value = "ALL";
+    } else {
+        yearSelect.value = currentVal;
+    }
+}
+
+function save() {
+    localStorage.setItem("energy_data_2026", JSON.stringify(bills));
+    renderAll();
+}
+
+function addBill() {
+    const type = document.getElementById("type").value;
+    const start = document.getElementById("startDate").value;
+    const end = document.getElementById("endDate").value;
+    const cons = parseFloat(document.getElementById("consumption").value);
+    const amt = parseFloat(document.getElementById("amount").value);
+    const notes = document.getElementById("notes").value || "";
+
+    if (!start || !end || isNaN(cons) || isNaN(amt)) return alert("Dati incompleti!");
+
+    // Validazione date
+    if (new Date(end) < new Date(start)) {
+        return alert("Errore: La data di fine non può essere antecedente alla data di inizio.");
+    }
+
+    bills.push({ id: Date.now(), type, start, end, consumption: cons, amount: amt, notes: notes });
+    bills.sort((a, b) => new Date(b.end) - new Date(a.end));
+    
+    // Svuota i campi dopo il salvataggio per comodità
+    document.getElementById("consumption").value = "";
+    document.getElementById("amount").value = "";
+    document.getElementById("notes").value = "";
+    
+    updateYearFilter();
+    save();
+}
+
+function exportBackup() {
+    if (bills.length === 0) return alert("Nessun dato da esportare.");
+    const dataStr = JSON.stringify(bills, null, 2);
+    const blob = new Blob([dataStr], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `backup_energia_${new Date().toISOString().split('T')[0]}.json`;
+    link.click();
+}
+
+function importBackup(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const importedData = JSON.parse(e.target.result);
+            if (Array.isArray(importedData)) {
+                if (confirm("Vuoi sovrascrivere i dati attuali con quelli del backup?")) {
+                    bills = importedData;
+                    localStorage.setItem("energy_data_2026", JSON.stringify(bills));
+                    
+                    document.getElementById("filterYear").value = "ALL";
+                    document.getElementById("filterType").value = "ALL";
+                    
+                    updateYearFilter();
+                    renderAll();
+                    alert("Backup importato con successo! " + bills.length + " bollette caricate.");
+                }
+            } else { alert("File non valido."); }
+        } catch (err) { alert("Errore nella lettura del file."); }
+    };
+    reader.readAsText(file);
+    event.target.value = ""; 
+}
+
+function deleteBill(id) {
+    if(confirm("Eliminare?")) { 
+        bills = bills.filter(b => b.id !== id); 
+        updateYearFilter();
+        save(); 
+    }
+}
+
+function getDays(s, e) {
+    const diff = new Date(e) - new Date(s);
+    return Math.max(1, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+}
+
+function renderAll() {
+    const tbody = document.getElementById("tableBody");
+    const annualDiv = document.getElementById("annualSummary");
+    const filterYear = document.getElementById("filterYear").value;
+    const filterType = document.getElementById("filterType").value;
+    
+    tbody.innerHTML = "";
+    let stats = {};
+
+    const filteredBills = bills.filter(b => {
+        const anno = new Date(b.end).getFullYear().toString();
+        const matchesYear = (filterYear === "ALL" || anno === filterYear);
+        const matchesType = (filterType === "ALL" || b.type === filterType);
+        return matchesYear && matchesType;
+    });
+
+    filteredBills.forEach(b => {
+        const giorni = getDays(b.start, b.end);
+        const label = b.type === 'ELETTRICITA' ? 'kWh' : 'Smc';
+        const notesDisplay = b.notes ? b.notes : '';
+        
+        // Formattazione per la colonna periodo
+        const startDateStr = new Date(b.start).toLocaleDateString('it-IT');
+        const endDateStr = new Date(b.end).toLocaleDateString('it-IT');
+        
+        tbody.innerHTML += `<tr>
+            <td><strong>${b.type}</strong></td>
+            <td>${startDateStr} - ${endDateStr}</td>
+            <td>${b.consumption} ${label}</td>
+            <td style="font-weight:bold;">€ ${b.amount.toFixed(2)}</td>
+            <td class="daily-stat">${(b.consumption/giorni).toFixed(2)} ${label}/gg</td>
+            <td>€ ${(b.amount/b.consumption).toFixed(3)}</td>
+            <td style="font-size: 0.9em; color: #555;">${notesDisplay}</td>
+            <td><button class="btn-del" onclick="deleteBill(${b.id})">Elimina</button></td>
+        </tr>`;
+
+        const anno = new Date(b.end).getFullYear();
+        if(!stats[anno]) stats[anno] = { eC: 0, eA: 0, eD: 0, gC: 0, gA: 0, gD: 0 };
+        if(b.type === 'ELETTRICITA') {
+            stats[anno].eC += b.consumption; stats[anno].eA += b.amount; stats[anno].eD += giorni;
+        } else {
+            stats[anno].gC += b.consumption; stats[anno].gA += b.amount; stats[anno].gD += giorni;
+        }
+    });
+
+    const summaryYears = Object.keys(stats).filter(y => filterYear === "ALL" || y === filterYear).sort().reverse();
+
+    annualDiv.innerHTML = summaryYears.map(y => {
+        const s = stats[y];
+        const showLuce = (filterType === "ALL" || filterType === "ELETTRICITA");
+        const showGas = (filterType === "ALL" || filterType === "GAS");
+
+        return `<div class="annual-box">
+            <strong style="color: var(--primary); font-size: 1.1em;">ANNO ${y}</strong>
+            <div style="display: grid; grid-template-columns: ${showLuce && showGas ? '1fr 1fr' : '1fr'}; gap: 15px; margin-top: 10px;">
+                ${showLuce ? `<div>
+                    <small><b>LUCE</b></small><br>
+                    <span class="total-stat">${s.eC.toFixed(1)} kWh</span><br>
+                    <span class="total-stat">€ ${s.eA.toFixed(2)}</span>
+                    <div class="divider"></div>
+                    <small class="daily-stat">${(s.eC/s.eD || 0).toFixed(2)} kWh/gg</small><br>
+                    <small class="daily-stat">${(s.eA/s.eD || 0).toFixed(2)} €/gg</small>
+                </div>` : ''}
+                ${showGas ? `<div>
+                    <small><b>GAS</b></small><br>
+                    <span class="total-stat">${s.gC.toFixed(1)} Smc</span><br>
+                    <span class="total-stat">€ ${s.gA.toFixed(2)}</span>
+                    <div class="divider"></div>
+                    <small class="daily-stat">${(s.gC/s.gD || 0).toFixed(2)} Smc/gg</small><br>
+                    <small class="daily-stat">${(s.gA/s.gD || 0).toFixed(2)} €/gg</small>
+                </div>` : ''}
+            </div>
+        </div>`;
+    }).join("") || "Nessun dato corrispondente ai filtri.";
+}
+
+loadData();
+</script>
+</body>
+</html>
