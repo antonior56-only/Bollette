@@ -23,10 +23,12 @@
         button { padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.3s; }
         .btn-add { background: var(--primary); color: white; width: 100%; margin-bottom: 10px; }
         .btn-backup { background: #607d8b; color: white; width: 48%; font-size: 12px; }
-        .btn-import { background: #9c27b0; color: white; width: 48%; font-size: 12px; }
+        .btn-import { background: #9c27b0; color: white; flex: 1; font-size: 12px; }
+        .btn-backup { width: auto; flex: 1; }
+        .btn-jsonbin { background: #00897b; color: white; flex: 1; font-size: 12px; }
         .btn-del { background: #ff7675; color: white; padding: 5px 10px; font-size: 12px; border-radius: 4px; }
         
-        .flex-buttons { display: flex; justify-content: space-between; gap: 4%; margin-top: 10px; }
+        .flex-buttons { display: flex; justify-content: space-between; gap: 8px; margin-top: 10px; }
         
         table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 0.85em; }
         th, td { text-align: left; padding: 12px; border-bottom: 1px solid #f1f2f6; }
@@ -68,7 +70,7 @@
         </div>
     </div>
 
-    <div class="card"><h2>☁️ Backup JSONBin.io</h2><p>Inserisci una Access Key JSONBin con permessi di lettura, aggiornamento e creazione. Se Bin ID è vuoto, verrà creato un nuovo bin privato.</p><div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));"><label>Access Key<input id="jsonbinKey" type="password" autocomplete="off" placeholder="La tua Access Key"></label><label>Bin ID (opzionale)<input id="jsonbinId" type="text" autocomplete="off" placeholder="Vuoto = crea bin"></label></div><div class="flex-buttons" style="justify-content:flex-start; gap:10px;"><button type="button" id="saveConfigButton" style="background:#455a64;color:white">Salva configurazione</button><button type="button" id="syncButton" style="background:#00897b;color:white">Sincronizza ora</button><button type="button" id="loadButton" style="background:#5e35b1;color:white">Carica da JSONBin</button></div><p id="cloudStatus" role="status" aria-live="polite">Dati salvati solo su questo dispositivo.</p></div>
+    <div class="card" id="jsonbinSettings" style="display:none"><h2>☁️ Backup JSONBin.io</h2><p>Inserisci una Access Key JSONBin con permessi di lettura, aggiornamento e creazione. Se Bin ID è vuoto, verrà creato un nuovo bin privato.</p><div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));"><label>Access Key<input id="jsonbinKey" type="password" autocomplete="off" placeholder="La tua Access Key"></label><label>Bin ID (opzionale)<input id="jsonbinId" type="text" autocomplete="off" placeholder="Vuoto = crea bin"></label></div><div class="flex-buttons" style="justify-content:flex-start; gap:10px;"><button type="button" id="saveConfigButton" style="background:#455a64;color:white">Salva configurazione</button><button type="button" id="syncButton" style="background:#00897b;color:white">Sincronizza ora</button><button type="button" id="loadButton" style="background:#5e35b1;color:white">Carica da JSONBin</button></div><p id="cloudStatus" role="status" aria-live="polite">Dati salvati solo su questo dispositivo.</p></div>
 
     <div class="grid">
         <div class="card">
@@ -91,6 +93,7 @@
             <div class="flex-buttons">
                 <button class="btn-backup" onclick="exportBackup()">ESPORTA BACKUP</button>
                 <button class="btn-import" onclick="document.getElementById('importFile').click()">IMPORTA BACKUP</button>
+                <button class="btn-jsonbin" type="button" onclick="toggleJsonbinSettings()">JSONBIN.IO</button>
             </div>
             <input type="file" id="importFile" style="display:none" accept=".json" onchange="importBackup(event)">
         </div>
@@ -192,6 +195,12 @@ function updateYearFilter() {
 function save() {
     localStorage.setItem("energy_data_2026", JSON.stringify(bills)); renderAll();
     const cfg = getJsonbinConfig(); if (cfg.key && cfg.id) syncToJsonbin(false);
+}
+function toggleJsonbinSettings() {
+    const panel = document.getElementById('jsonbinSettings');
+    const opening = panel.style.display === 'none';
+    panel.style.display = opening ? 'block' : 'none';
+    if (opening) panel.scrollIntoView({behavior:'smooth', block:'nearest'});
 }
 function getJsonbinConfig() { return {key:localStorage.getItem('jsonbin_access_key')||'', id:localStorage.getItem('jsonbin_bin_id')||''}; }
 function setCloudStatus(message,error=false) { const el=document.getElementById('cloudStatus'); el.textContent=message; el.style.color=error?'#c62828':'#2e7d32'; }
