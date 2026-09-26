@@ -37,6 +37,11 @@
         .total-stat { color: var(--primary); font-weight: bold; font-size: 1.1em; }
         .annual-box { background: #fdfdfd; border: 1px solid #edf2f7; padding: 15px; border-radius: 10px; margin-bottom: 15px; border-left: 5px solid var(--primary); }
         .divider { height: 1px; background: #eee; margin: 8px 0; }
+        .sync-indicator { display:inline-flex; align-items:center; gap:8px; padding:7px 12px; border-radius:999px; background:#eceff1; color:#455a64; font-size:13px; font-weight:600; margin-top:4px; }
+        .sync-indicator::before { content:""; width:9px; height:9px; border-radius:50%; background:currentColor; }
+        .sync-indicator[data-state="syncing"] { background:#fff3e0; color:#ef6c00; }
+        .sync-indicator[data-state="success"] { background:#e8f5e9; color:#2e7d32; }
+        .sync-indicator[data-state="error"] { background:#ffebee; color:#c62828; }
         .recovery-alert { background: #fff3cd; color: #856404; padding: 10px; border-radius: 8px; margin-bottom: 15px; font-size: 0.9em; display: none; border: 1px solid #ffeeba; }
     </style>
 </head>
@@ -47,6 +52,7 @@
     
     <header style="margin-bottom: 30px; text-align: center;">
         <h1>⚡ Energia PRO+ <small style="font-size: 0.4em; opacity: 0.6;">v4.2 (Fixed)</small></h1>
+        <div id="syncIndicator" class="sync-indicator" data-state="local" role="status" aria-live="polite">Solo su questo dispositivo</div>
     </header>
 
     <div class="card">
@@ -203,7 +209,13 @@ function toggleJsonbinSettings() {
     if (opening) panel.scrollIntoView({behavior:'smooth', block:'nearest'});
 }
 function getJsonbinConfig() { return {key:localStorage.getItem('jsonbin_access_key')||'', id:localStorage.getItem('jsonbin_bin_id')||''}; }
-function setCloudStatus(message,error=false) { const el=document.getElementById('cloudStatus'); el.textContent=message; el.style.color=error?'#c62828':'#2e7d32'; }
+function setCloudStatus(message,error=false,state=null) {
+ const el=document.getElementById('cloudStatus'); el.textContent=message; el.style.color=error?'#c62828':'#2e7d32';
+ const indicator=document.getElementById('syncIndicator');
+ const status=state||(error?'error':(/in corso|inviando|caricamento/i.test(message)?'syncing':(/completat/i.test(message)?'success':'local')));
+ indicator.dataset.state=status;
+ indicator.textContent=status==='syncing'?'Sincronizzazione in corso…':status==='success'?message:status==='error'?'Errore di sincronizzazione':message;
+}
 function jsonbinHeaders(key) { return {'Content-Type':'application/json','X-Access-Key':key}; }
 async function syncToJsonbin() {
  const {key}=getJsonbinConfig(); if(!key) return setCloudStatus('Inserisci e salva la tua Access Key JSONBin.',true);
@@ -386,6 +398,7 @@ function renderAll() {
 
 loadData();
 document.getElementById('jsonbinKey').value=localStorage.getItem('jsonbin_access_key')||'';document.getElementById('jsonbinId').value=localStorage.getItem('jsonbin_bin_id')||'';
+if(localStorage.getItem('jsonbin_access_key')&&localStorage.getItem('jsonbin_bin_id'))setCloudStatus('Pronto per la sincronizzazione automatica.');
 if('serviceWorker'in navigator&&location.protocol!=='file:')navigator.serviceWorker.register('./service-worker.js').catch(err=>console.error('Service worker:',err));
 let installPrompt=null;const installButton=document.getElementById('installButton');
 function isInstalled(){return window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true;}
