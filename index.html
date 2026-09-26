@@ -43,6 +43,31 @@
         .sync-indicator[data-state="success"] { background:#e8f5e9; color:#2e7d32; }
         .sync-indicator[data-state="error"] { background:#ffebee; color:#c62828; }
         .recovery-alert { background: #fff3cd; color: #856404; padding: 10px; border-radius: 8px; margin-bottom: 15px; font-size: 0.9em; display: none; border: 1px solid #ffeeba; }
+        .jsonbin-heading { display:flex; justify-content:space-between; align-items:center; gap:12px; }
+        .jsonbin-heading h2 { margin-bottom:14px; }
+        .btn-close-jsonbin { background:#eceff1; color:#37474f; padding:8px 12px; margin-bottom:14px; flex:0 0 auto; }
+        *, *::before, *::after { box-sizing:border-box; }
+        @media (max-width: 600px) {
+            body { padding:10px; line-height:1.4; }
+            .container { width:100%; max-width:100%; margin:0 auto; }
+            header { margin-bottom:14px !important; }
+            h1 { font-size:1.55rem; line-height:1.2; padding-bottom:8px; margin-bottom:8px; }
+            h1 small { font-size:.48em !important; white-space:nowrap; }
+            h2 { font-size:1.15rem; line-height:1.25; padding-bottom:8px; margin-bottom:14px; }
+            .card { padding:16px; border-radius:14px; margin-bottom:12px; }
+            .grid { grid-template-columns:minmax(0,1fr); gap:0; }
+            .filter-bar { gap:8px; padding:10px; margin-bottom:8px; }
+            .filter-bar label { font-size:.8rem; }
+            input, select { min-width:0; padding:10px; margin:6px 0; font-size:14px; }
+            .flex-buttons { gap:5px; }
+            .flex-buttons button { min-width:0; padding:10px 5px; font-size:10px; line-height:1.2; }
+            .btn-add { padding:11px; }
+            .annual-box { padding:12px; margin-bottom:10px; }
+            .sync-indicator { font-size:11px; padding:6px 10px; }
+            .jsonbin-heading { align-items:flex-start; }
+            .jsonbin-heading h2 { font-size:1.08rem; }
+            table { min-width:680px; }
+        }
     </style>
 </head>
 <body>
@@ -76,7 +101,7 @@
         </div>
     </div>
 
-    <div class="card" id="jsonbinSettings" style="display:none"><h2>☁️ Backup JSONBin.io</h2><p>Inserisci una Access Key JSONBin con permessi di lettura, aggiornamento e creazione. Se Bin ID è vuoto, verrà creato un nuovo bin privato.</p><div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));"><label>Access Key<input id="jsonbinKey" type="password" autocomplete="off" placeholder="La tua Access Key"></label><label>Bin ID (opzionale)<input id="jsonbinId" type="text" autocomplete="off" placeholder="Vuoto = crea bin"></label></div><div class="flex-buttons" style="justify-content:flex-start; gap:10px;"><button type="button" id="saveConfigButton" style="background:#455a64;color:white">Salva configurazione</button><button type="button" id="syncButton" style="background:#00897b;color:white">Sincronizza ora</button><button type="button" id="loadButton" style="background:#5e35b1;color:white">Carica da JSONBin</button></div><p id="cloudStatus" role="status" aria-live="polite">Dati salvati solo su questo dispositivo.</p></div>
+    <div class="card" id="jsonbinSettings" style="display:none"><div class="jsonbin-heading"><h2>☁️ Backup JSONBin.io</h2><button class="btn-close-jsonbin" type="button" onclick="toggleJsonbinSettings(false)" aria-label="Chiudi impostazioni JSONBin">Chiudi ✕</button></div><p>Inserisci una Access Key JSONBin con permessi di lettura, aggiornamento e creazione. Se Bin ID è vuoto, verrà creato un nuovo bin privato.</p><div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));"><label>Access Key<input id="jsonbinKey" type="password" autocomplete="off" placeholder="La tua Access Key"></label><label>Bin ID (opzionale)<input id="jsonbinId" type="text" autocomplete="off" placeholder="Vuoto = crea bin"></label></div><div class="flex-buttons" style="justify-content:flex-start; gap:10px;"><button type="button" id="saveConfigButton" style="background:#455a64;color:white">Salva configurazione</button><button type="button" id="syncButton" style="background:#00897b;color:white">Sincronizza ora</button><button type="button" id="loadButton" style="background:#5e35b1;color:white">Carica da JSONBin</button></div><p id="cloudStatus" role="status" aria-live="polite">Dati salvati solo su questo dispositivo.</p></div>
 
     <div class="grid">
         <div class="card">
@@ -202,9 +227,9 @@ function save() {
     localStorage.setItem("energy_data_2026", JSON.stringify(bills)); renderAll();
     const cfg = getJsonbinConfig(); if (cfg.key && cfg.id) syncToJsonbin(false);
 }
-function toggleJsonbinSettings() {
+function toggleJsonbinSettings(forceOpen=null) {
     const panel = document.getElementById('jsonbinSettings');
-    const opening = panel.style.display === 'none';
+    const opening = forceOpen === null ? panel.style.display === 'none' : forceOpen;
     panel.style.display = opening ? 'block' : 'none';
     if (opening) panel.scrollIntoView({behavior:'smooth', block:'nearest'});
 }
