@@ -3,6 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#1e88e5">
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="icon" href="icon.svg" type="image/svg+xml">
     <title>Energia PRO+ | Analisi & Backup</title>
     <style>
         :root { --primary: #1e88e5; --bg: #f4f7f9; --text: #2c3e50; --accent: #00bcd4; }
@@ -45,6 +48,7 @@
     </header>
 
     <div class="card">
+        <button id="installButton" type="button" style="display:none; background:#1e88e5; color:white; margin-bottom:14px;">⬇️ Installa app</button>
         <h2>🔍 Filtra Visualizzazione</h2>
         <div class="filter-bar">
             <div style="flex:1">
@@ -63,6 +67,8 @@
             </div>
         </div>
     </div>
+
+    <div class="card"><h2>☁️ Backup JSONBin.io</h2><p>Inserisci una Access Key JSONBin con permessi di lettura, aggiornamento e creazione. Se Bin ID è vuoto, verrà creato un nuovo bin privato.</p><div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));"><label>Access Key<input id="jsonbinKey" type="password" autocomplete="off" placeholder="La tua Access Key"></label><label>Bin ID (opzionale)<input id="jsonbinId" type="text" autocomplete="off" placeholder="Vuoto = crea bin"></label></div><div class="flex-buttons" style="justify-content:flex-start; gap:10px;"><button type="button" id="saveConfigButton" style="background:#455a64;color:white">Salva configurazione</button><button type="button" id="syncButton" style="background:#00897b;color:white">Sincronizza ora</button><button type="button" id="loadButton" style="background:#5e35b1;color:white">Carica da JSONBin</button></div><p id="cloudStatus" role="status" aria-live="polite">Dati salvati solo su questo dispositivo.</p></div>
 
     <div class="grid">
         <div class="card">
@@ -184,9 +190,36 @@ function updateYearFilter() {
 }
 
 function save() {
-    localStorage.setItem("energy_data_2026", JSON.stringify(bills));
-    renderAll();
+    localStorage.setItem("energy_data_2026", JSON.stringify(bills)); renderAll();
+    const cfg = getJsonbinConfig(); if (cfg.key && cfg.id) syncToJsonbin(false);
 }
+function getJsonbinConfig() { return {key:localStorage.getItem('jsonbin_access_key')||'', id:localStorage.getItem('jsonbin_bin_id')||''}; }
+function setCloudStatus(message,error=false) { const el=document.getElementById('cloudStatus'); el.textContent=message; el.style.color=error?'#c62828':'#2e7d32'; }
+function jsonbinHeaders(key) { return {'Content-Type':'application/json','X-Access-Key':key}; }
+async function syncToJsonbin() {
+ const {key}=getJsonbinConfig(); if(!key) return setCloudStatus('Inserisci e salva la tua Access Key JSONBin.',true);
+ const btn=document.getElementById('syncButton'); btn.disabled=true; setCloudStatus('Sincronizzazione in corso…');
+ try { let {id}=getJsonbinConfig(), response;
+  if(id) response=await fetch(`https://api.jsonbin.io/v3/b/${encodeURIComponent(id)}`,{method:'PUT',headers:jsonbinHeaders(key),body:JSON.stringify(bills)});
+  else response=await fetch('https://api.jsonbin.io/v3/b',{method:'POST',headers:{...jsonbinHeaders(key),'X-Bin-Private':'true','X-Bin-Name':'Energia PRO+'},body:JSON.stringify(bills)});
+  const payload=await response.json(); if(!response.ok) throw new Error(payload.message||`Errore HTTP ${response.status}`);
+  if(!id&&payload.metadata?.id){id=payload.metadata.id;localStorage.setItem('jsonbin_bin_id',id);document.getElementById('jsonbinId').value=id;}
+  setCloudStatus(`Sincronizzazione completata. Bin ID: ${id}`);
+ } catch(e){setCloudStatus(`Errore JSONBin: ${e.message}`,true);} finally{btn.disabled=false;}
+}
+async function loadFromJsonbin() {
+ const {key,id}=getJsonbinConfig(); if(!key||!id)return setCloudStatus('Inserisci Access Key e Bin ID per caricare i dati.',true);
+ if(!confirm('Caricare i dati da JSONBin e sostituire quelli presenti su questo dispositivo?'))return;
+ setCloudStatus('Caricamento in corso…');
+ try { const response=await fetch(`https://api.jsonbin.io/v3/b/${encodeURIComponent(id)}/latest`,{headers:{'X-Access-Key':key}}), payload=await response.json();
+  if(!response.ok)throw new Error(payload.message||`Errore HTTP ${response.status}`); if(!Array.isArray(payload.record))throw new Error('Il contenuto del bin non è una lista di bollette.');
+  bills=normalizeBills(payload.record);localStorage.setItem('energy_data_2026',JSON.stringify(bills));updateYearFilter();renderAll();setCloudStatus(`Caricamento completato: ${bills.length} bollette.`);
+ }catch(e){setCloudStatus(`Errore JSONBin: ${e.message}`,true);}
+}
+document.getElementById('saveConfigButton').addEventListener('click',()=>{localStorage.setItem('jsonbin_access_key',document.getElementById('jsonbinKey').value.trim());const id=document.getElementById('jsonbinId').value.trim();if(id)localStorage.setItem('jsonbin_bin_id',id);else localStorage.removeItem('jsonbin_bin_id');setCloudStatus('Configurazione salvata su questo dispositivo.');});
+document.getElementById('syncButton').addEventListener('click',()=>syncToJsonbin());
+document.getElementById('loadButton').addEventListener('click',loadFromJsonbin);
+
 
 function addBill() {
     const type = document.getElementById("type").value;
@@ -234,6 +267,8 @@ function importBackup(event) {
                 if (confirm("Vuoi sovrascrivere i dati attuali con quelli del backup?")) {
                     bills = normalizeBills(importedData);
                     localStorage.setItem("energy_data_2026", JSON.stringify(bills));
+                    const cloudConfig = getJsonbinConfig();
+                    if (cloudConfig.key) syncToJsonbin();
                     
                     // Reset filtri per mostrare tutto dopo l'import
                     document.getElementById("filterYear").value = "ALL";
@@ -341,6 +376,14 @@ function renderAll() {
 }
 
 loadData();
+document.getElementById('jsonbinKey').value=localStorage.getItem('jsonbin_access_key')||'';document.getElementById('jsonbinId').value=localStorage.getItem('jsonbin_bin_id')||'';
+if('serviceWorker'in navigator&&location.protocol!=='file:')navigator.serviceWorker.register('./service-worker.js').catch(err=>console.error('Service worker:',err));
+let installPrompt=null;const installButton=document.getElementById('installButton');
+function isInstalled(){return window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true;}
+function updateInstallButton(){installButton.style.display=(!isInstalled()&&installPrompt)?'inline-block':'none';}
+window.addEventListener('beforeinstallprompt',event=>{event.preventDefault();installPrompt=event;updateInstallButton();});
+window.addEventListener('appinstalled',()=>{installPrompt=null;updateInstallButton();});
+installButton.addEventListener('click',async()=>{if(!installPrompt)return;installPrompt.prompt();await installPrompt.userChoice;installPrompt=null;updateInstallButton();});updateInstallButton();
 </script>
 </body>
 </html>
