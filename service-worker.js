@@ -1,4 +1,4 @@
-const CACHE_NAME = 'energia-pro-plus-v3';
+const CACHE_NAME = 'energia-pro-plus-v4';
 const APP_FILES = ['./', './index.html', './manifest.webmanifest', './icon.svg', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', event => {
