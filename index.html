@@ -249,26 +249,27 @@ function setCloudStatus(message,error=false,state=null) {
  indicator.textContent=status==='syncing'?'Sincronizzazione in corso…':status==='success'?message:status==='error'?'Errore di sincronizzazione':message;
 }
 function jsonbinHeaders(key) { return {'Content-Type':'application/json','X-Access-Key':key}; }
+function jsonbinRecord() { return { bills }; }
 async function syncToJsonbin() {
  const {key}=getJsonbinConfig(); if(!key) return setCloudStatus('Inserisci e salva la tua Access Key JSONBin.',true);
  const btn=document.getElementById('syncButton'); btn.disabled=true; setCloudStatus('Sincronizzazione in corso…');
  try { let {id}=getJsonbinConfig(), response;
-  if(id) response=await fetch(`https://api.jsonbin.io/v3/b/${encodeURIComponent(id)}`,{method:'PUT',headers:jsonbinHeaders(key),body:JSON.stringify(bills)});
-  else response=await fetch('https://api.jsonbin.io/v3/b',{method:'POST',headers:{...jsonbinHeaders(key),'X-Bin-Private':'true','X-Bin-Name':'Energia PRO+'},body:JSON.stringify(bills)});
+  if(id) response=await fetch(`https://api.jsonbin.io/v3/b/${encodeURIComponent(id)}`,{method:'PUT',headers:jsonbinHeaders(key),body:JSON.stringify(jsonbinRecord())});
+  else response=await fetch('https://api.jsonbin.io/v3/b',{method:'POST',headers:{...jsonbinHeaders(key),'X-Bin-Private':'true','X-Bin-Name':'Energia PRO+'},body:JSON.stringify(jsonbinRecord())});
   const payload=await response.json(); if(!response.ok) throw new Error(payload.message||`Errore HTTP ${response.status}`);
   if(!id&&payload.metadata?.id){id=payload.metadata.id;localStorage.setItem('jsonbin_bin_id',id);document.getElementById('jsonbinId').value=id;}
   if(id) { document.getElementById('jsonbinId').value=id; localStorage.setItem('jsonbin_bin_id',id); }
   setCloudStatus(id ? `Sincronizzazione completata. Bin ID: ${id}. Inserisci questo ID sugli altri dispositivi.` : 'Sincronizzazione completata.');
- } catch(e){setCloudStatus(`Errore JSONBin: ${e.message}`,true);} finally{btn.disabled=false;}
+ } catch(e){setCloudStatus(e instanceof TypeError ? `Connessione a JSONBin non riuscita (${e.message}). Verifica che il dispositivo sia online e che l'app sia aperta da un indirizzo HTTPS.` : `Errore JSONBin: ${e.message}`,true);} finally{btn.disabled=false;}
 }
 async function loadFromJsonbin(confirmReplace=true) {
  const {key,id}=getJsonbinConfig(); if(!key||!id)return setCloudStatus('Inserisci Access Key e Bin ID per caricare i dati.',true);
  if(confirmReplace&&!confirm('Caricare i dati da JSONBin e sostituire quelli presenti su questo dispositivo?'))return;
  setCloudStatus('Caricamento in corso…');
  try { const response=await fetch(`https://api.jsonbin.io/v3/b/${encodeURIComponent(id)}/latest`,{headers:{'X-Access-Key':key}}), payload=await response.json();
-  if(!response.ok)throw new Error(payload.message||`Errore HTTP ${response.status}`); if(!Array.isArray(payload.record))throw new Error('Il contenuto del bin non è una lista di bollette.');
-  bills=normalizeBills(payload.record);localStorage.setItem('energy_data_2026',JSON.stringify(bills));localStorage.removeItem('energy_data');localStorage.removeItem('bills');updateYearFilter();renderAll();setCloudStatus(`Caricamento completato: ${bills.length} bollette.`);
- }catch(e){setCloudStatus(`Errore JSONBin: ${e.message}`,true);}
+  if(!response.ok)throw new Error(payload.message||`Errore HTTP ${response.status}`); const remoteBills=Array.isArray(payload.record)?payload.record:payload.record?.bills; if(!Array.isArray(remoteBills))throw new Error('Il contenuto del bin non contiene una lista di bollette.');
+  bills=normalizeBills(remoteBills);localStorage.setItem('energy_data_2026',JSON.stringify(bills));localStorage.removeItem('energy_data');localStorage.removeItem('bills');updateYearFilter();renderAll();setCloudStatus(`Caricamento completato: ${bills.length} bollette.`);
+ }catch(e){setCloudStatus(e instanceof TypeError ? `Connessione a JSONBin non riuscita (${e.message}). Verifica che il dispositivo sia online e che l'app sia aperta da un indirizzo HTTPS.` : `Errore JSONBin: ${e.message}`,true);}
 }
 document.getElementById('saveConfigButton').addEventListener('click',()=>{localStorage.setItem('jsonbin_access_key',document.getElementById('jsonbinKey').value.trim());const id=document.getElementById('jsonbinId').value.trim();if(id)localStorage.setItem('jsonbin_bin_id',id);else localStorage.removeItem('jsonbin_bin_id');setCloudStatus('Configurazione salvata su questo dispositivo.');});
 document.getElementById('syncButton').addEventListener('click',()=>syncToJsonbin());
