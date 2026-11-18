@@ -249,12 +249,18 @@ function getJsonbinConfig() { return {key:localStorage.getItem('jsonbin_access_k
 function setCloudStatus(message,error=false,state=null) {
  const el=document.getElementById('cloudStatus'); el.textContent=message; el.style.color=error?'#c62828':'#2e7d32';
  const indicator=document.getElementById('syncIndicator');
- const status=state||(error?'error':(/in corso|inviando|caricamento/i.test(message)?'syncing':(/completat/i.test(message)?'success':'local')));
+ const status=state||(error?'error':(/completat|già allineat/i.test(message)?'success':(/in corso|inviando|caricamento/i.test(message)?'syncing':'local')));
  indicator.dataset.state=status;
  indicator.textContent=status==='syncing'?'Sincronizzazione in corso…':status==='success'?message:status==='error'?'Errore di sincronizzazione':message;
 }
 function jsonbinHeaders(key) { return {'Content-Type':'application/json','X-Access-Key':key}; }
 function jsonbinRecord() { return { bills }; }
+function billsMatch(first,second) {
+ const comparable=data=>normalizeBills(data)
+  .map(b=>[b.type,b.start,b.end,b.consumption,b.amount])
+  .sort((a,b)=>JSON.stringify(a).localeCompare(JSON.stringify(b)));
+ return JSON.stringify(comparable(first))===JSON.stringify(comparable(second));
+}
 async function syncToJsonbin() {
  const {key}=getJsonbinConfig(); if(!key) return setCloudStatus('Inserisci e salva la tua Access Key JSONBin.',true);
  const btn=document.getElementById('syncButton'); btn.disabled=true; setCloudStatus('Sincronizzazione in corso…');
@@ -267,13 +273,16 @@ async function syncToJsonbin() {
   setCloudStatus(id ? `Sincronizzazione completata. Bin ID: ${id}. Inserisci questo ID sugli altri dispositivi.` : 'Sincronizzazione completata.');
  } catch(e){setCloudStatus(e instanceof TypeError ? `Connessione a JSONBin non riuscita (${e.message}). Verifica che il dispositivo sia online e che l'app sia aperta da un indirizzo HTTPS.` : `Errore JSONBin: ${e.message}`,true);} finally{btn.disabled=false;}
 }
-async function loadFromJsonbin(confirmReplace=true) {
+async function loadFromJsonbin({checkDifferences=false}={}) {
  const {key,id}=getJsonbinConfig(); if(!key||!id)return setCloudStatus('Inserisci Access Key e Bin ID per caricare i dati.',true);
- if(confirmReplace&&!confirm('Caricare i dati da JSONBin e sostituire quelli presenti su questo dispositivo?'))return;
+ if(!checkDifferences&&!confirm('Caricare i dati da JSONBin e sostituire quelli presenti su questo dispositivo?'))return;
  setCloudStatus('Caricamento in corso…');
  try { const response=await fetch(`https://api.jsonbin.io/v3/b/${encodeURIComponent(id)}/latest`,{headers:{'X-Access-Key':key}}), payload=await response.json();
   if(!response.ok)throw new Error(payload.message||`Errore HTTP ${response.status}`); const remoteBills=Array.isArray(payload.record)?payload.record:payload.record?.bills; if(!Array.isArray(remoteBills))throw new Error('Il contenuto del bin non contiene una lista di bollette.');
-  bills=normalizeBills(remoteBills);localStorage.setItem('energy_data_2026',JSON.stringify(bills));localStorage.removeItem('energy_data');localStorage.removeItem('bills');updateYearFilter();renderAll();setCloudStatus(`Caricamento completato: ${bills.length} bollette.`);
+  const normalizedRemote=normalizeBills(remoteBills);
+  if(checkDifferences&&billsMatch(bills,normalizedRemote)) { setCloudStatus('Dati locali già allineati a JSONBin.'); return; }
+  if(checkDifferences&&!confirm('JSONBin contiene dati diversi da quelli salvati su questo dispositivo. Vuoi aggiornare i dati locali da JSONBin? Scegli “Annulla” per mantenere i dati locali.')) { setCloudStatus('Dati locali mantenuti. JSONBin contiene una versione diversa.'); return; }
+  bills=normalizedRemote;localStorage.setItem('energy_data_2026',JSON.stringify(bills));localStorage.removeItem('energy_data');localStorage.removeItem('bills');updateYearFilter();renderAll();setCloudStatus(`Caricamento completato: ${bills.length} bollette.`);
  }catch(e){setCloudStatus(e instanceof TypeError ? `Connessione a JSONBin non riuscita (${e.message}). Verifica che il dispositivo sia online e che l'app sia aperta da un indirizzo HTTPS.` : `Errore JSONBin: ${e.message}`,true);}
 }
 document.getElementById('saveConfigButton').addEventListener('click',()=>{localStorage.setItem('jsonbin_access_key',document.getElementById('jsonbinKey').value.trim());const id=document.getElementById('jsonbinId').value.trim();if(id)localStorage.setItem('jsonbin_bin_id',id);else localStorage.removeItem('jsonbin_bin_id');setCloudStatus('Configurazione salvata su questo dispositivo.');});
@@ -465,7 +474,7 @@ function renderAll() {
 
 loadData();
 document.getElementById('jsonbinKey').value=localStorage.getItem('jsonbin_access_key')||'';document.getElementById('jsonbinId').value=localStorage.getItem('jsonbin_bin_id')||'';
-if(localStorage.getItem('jsonbin_access_key')&&localStorage.getItem('jsonbin_bin_id')) { setCloudStatus('Caricamento dei dati condivisi da JSONBin…'); loadFromJsonbin(false); }
+if(localStorage.getItem('jsonbin_access_key')&&localStorage.getItem('jsonbin_bin_id')) { setCloudStatus('Controllo differenze con JSONBin…',false,'syncing'); loadFromJsonbin({checkDifferences:true}); }
 let installPrompt=null;const installButton=document.getElementById('installButton');const installHelp=document.getElementById('installHelp');
 function isInstalled(){return window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true;}
 function updateInstallButton(){
