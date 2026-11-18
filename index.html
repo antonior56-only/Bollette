@@ -75,14 +75,19 @@
 
 <div class="container">
     <div id="recoveryAlert" class="recovery-alert">Dati caricati correttamente!</div>
+    <div id="updateNotice" role="status" aria-live="polite" style="display:none; background:#e8f5e9; color:#1b5e20; padding:14px; border-radius:10px; margin-bottom:14px; border:1px solid #a5d6a7;">
+        <span>È disponibile una nuova versione di Energia PRO+.</span>
+        <button id="updateButton" type="button" style="margin-left:10px; background:#2e7d32; color:white;">Aggiorna app</button>
+    </div>
     
     <header style="margin-bottom: 30px; text-align: center;">
-        <h1>⚡ Energia PRO+ <small style="font-size: 0.4em; opacity: 0.6;">v4.2 (Fixed)</small></h1>
+        <h1>⚡ Energia PRO+ <small style="font-size: 0.4em; opacity: 0.6;">v4.3</small></h1>
         <div id="syncIndicator" class="sync-indicator" data-state="local" role="status" aria-live="polite">Solo su questo dispositivo</div>
     </header>
 
     <div class="card">
         <button id="installButton" type="button" style="display:none; background:#1e88e5; color:white; margin-bottom:14px;">⬇️ Installa app</button>
+        <p id="installHelp" role="status" style="display:none; background:#e3f2fd; color:#0d47a1; padding:12px; border-radius:8px; margin:0 0 14px;"></p>
         <h2>🔍 Filtra Visualizzazione</h2>
         <div class="filter-bar">
             <div style="flex:1">
@@ -461,13 +466,56 @@ function renderAll() {
 loadData();
 document.getElementById('jsonbinKey').value=localStorage.getItem('jsonbin_access_key')||'';document.getElementById('jsonbinId').value=localStorage.getItem('jsonbin_bin_id')||'';
 if(localStorage.getItem('jsonbin_access_key')&&localStorage.getItem('jsonbin_bin_id')) { setCloudStatus('Caricamento dei dati condivisi da JSONBin…'); loadFromJsonbin(false); }
-if('serviceWorker'in navigator&&location.protocol!=='file:')navigator.serviceWorker.register('./service-worker.js').catch(err=>console.error('Service worker:',err));
-let installPrompt=null;const installButton=document.getElementById('installButton');
+let installPrompt=null;const installButton=document.getElementById('installButton');const installHelp=document.getElementById('installHelp');
 function isInstalled(){return window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true;}
-function updateInstallButton(){installButton.style.display=(!isInstalled()&&installPrompt)?'inline-block':'none';}
-window.addEventListener('beforeinstallprompt',event=>{event.preventDefault();installPrompt=event;updateInstallButton();});
+function updateInstallButton(){
+ const visible=!isInstalled();
+ installButton.style.display=visible?'inline-block':'none';
+ installButton.textContent=installPrompt?'⬇️ Installa app':'Come installare l’app';
+ if(!visible)installHelp.style.display='none';
+}
+function getInstallInstructions(){
+ const ua=navigator.userAgent;
+ if(/iPhone|iPad|iPod/i.test(ua))return 'Su iPhone o iPad: apri il menu Condividi del browser e scegli “Aggiungi alla schermata Home”.';
+ if(/Android/i.test(ua))return 'Su Android: apri il menu del browser e scegli “Installa app” oppure “Aggiungi a schermata Home”.';
+ return 'Su PC o Mac: apri questa pagina con un browser compatibile, come Chrome o Edge, e scegli “Installa app” dal menu del browser o dall’icona accanto alla barra degli indirizzi. L’app va aperta da un indirizzo HTTPS.';
+}
+window.addEventListener('beforeinstallprompt',event=>{event.preventDefault();installPrompt=event;installHelp.style.display='none';updateInstallButton();});
 window.addEventListener('appinstalled',()=>{installPrompt=null;updateInstallButton();});
-installButton.addEventListener('click',async()=>{if(!installPrompt)return;installPrompt.prompt();await installPrompt.userChoice;installPrompt=null;updateInstallButton();});updateInstallButton();
+installButton.addEventListener('click',async()=>{
+ if(!installPrompt){installHelp.textContent=getInstallInstructions();installHelp.style.display='block';return;}
+ installPrompt.prompt();await installPrompt.userChoice;installPrompt=null;updateInstallButton();
+});
+updateInstallButton();
+
+const updateNotice=document.getElementById('updateNotice');
+const updateButton=document.getElementById('updateButton');
+let appServiceWorkerRegistration=null;
+let reloadAfterUpdate=false;
+function showUpdateNotice(){updateNotice.style.display='block';}
+if('serviceWorker'in navigator&&location.protocol!=='file:'){
+ navigator.serviceWorker.addEventListener('controllerchange',()=>{if(reloadAfterUpdate)location.reload();});
+ navigator.serviceWorker.register('./service-worker.js').then(registration=>{
+  appServiceWorkerRegistration=registration;
+  if(registration.waiting&&navigator.serviceWorker.controller)showUpdateNotice();
+  registration.addEventListener('updatefound',()=>{
+   const installing=registration.installing;
+   if(!installing)return;
+   installing.addEventListener('statechange',()=>{
+    if(installing.state==='installed'&&navigator.serviceWorker.controller)showUpdateNotice();
+   });
+  });
+  registration.update().catch(err=>console.warn('Controllo aggiornamenti:',err));
+ }).catch(err=>console.error('Service worker:',err));
+ window.addEventListener('focus',()=>{
+  if(appServiceWorkerRegistration)appServiceWorkerRegistration.update().catch(err=>console.warn('Controllo aggiornamenti:',err));
+ });
+}
+updateButton.addEventListener('click',async()=>{
+ const registration=appServiceWorkerRegistration||await navigator.serviceWorker.getRegistration();
+ if(registration?.waiting){reloadAfterUpdate=true;registration.waiting.postMessage({type:'SKIP_WAITING'});}
+ else {updateNotice.style.display='none';location.reload();}
+});
 </script>
 </body>
 </html>

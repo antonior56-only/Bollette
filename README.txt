@@ -12,4 +12,7 @@ CONFIGURAZIONE JSONBIN
 La chiave è conservata nel localStorage del browser. Una chiave usata nel frontend può essere letta da chi ha accesso a quel browser: crea una Access Key dedicata con i soli permessi necessari e non usare la Master Key.
 
 INSTALLAZIONE PWA
-Pubblica tutti i file di questa cartella su un hosting HTTPS (oppure avvia un server locale su localhost). La PWA non si installa aprendo index.html direttamente come file. Il pulsante “Installa app” appare quando il browser comunica che l'installazione è disponibile e resta nascosto nell'app già installata. Su alcuni browser l'installazione è disponibile dal menu del browser anche senza pulsante.
+Pubblica tutti i file di questa cartella su un hosting HTTPS (oppure avvia un server locale su localhost). La PWA non si installa aprendo index.html direttamente come file. Il pulsante di installazione avvia il prompt quando il browser lo supporta; altrimenti mostra le istruzioni per installare dal menu del browser. Il pulsante resta nascosto nell'app già installata.
+
+AGGIORNAMENTI
+Quando viene pubblicata una nuova versione, l'app mostra “È disponibile una nuova versione di Energia PRO+”. Seleziona “Aggiorna app” per attivarla e ricaricare la pagina. Il controllo avviene all'apertura dell'app e quando si torna alla scheda.
